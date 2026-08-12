@@ -1,0 +1,103 @@
+@media (max-width: 1024px) {
+    .hero-container {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .hero-description {
+        margin: 0 auto 32px auto;
+    }
+
+    .hero-cta-group {
+        justify-content: center;
+    }
+
+    .stats-row {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .hud-callout {
+        display: none;
+    }
+
+    .nav-links {
+        gap: 18px;
+    }
+
+    .nav-link {
+        font-size: 0.78rem;
+    }
+}
+
+@media (max-width: 840px) {
+    .navbar {
+        width: 95%;
+        padding: 10px 20px;
+    }
+
+    .nav-toggle {
+        display: block;
+    }
+
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: calc(100% + 10px);
+        left: 0;
+        right: 0;
+        background: rgba(10, 12, 16, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 20px;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    /* The full "REGISTER NOW" button plus the hamburger together don't fit
+       the pill navbar on small screens — it was pushing the hamburger
+       completely off-screen (unreachable/untappable). Move the CTA into the
+       mobile dropdown instead and keep only the hamburger in the top bar. */
+    .nav-actions .nav-btn {
+        display: none;
+    }
+
+    .nav-link-cta {
+        display: inline-flex !important;
+        margin-top: 4px;
+        padding: 14px 28px;
+        border-radius: 100px;
+        background: linear-gradient(135deg, #FF5A00, #EA3323);
+        color: #fff !important;
+        font-weight: 700;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .countdown-card {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+
+    .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .hero-cta-group {
+        flex-direction: column;
+    }
+}

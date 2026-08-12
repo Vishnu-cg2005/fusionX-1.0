@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCC FusionX 1.0 — Unified Admin Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="state.js"></script>
+<script src="animations.js" defer></script>
+<!-- The real, permanent published data (see data/site-data.js). Admin
+     edits below start from this baseline, and "Download & Publish"
+     writes a new copy of this exact file for you to replace it with. -->
+<script src="data/site-data.js"></script>
+<!-- Firebase: every save below (partners, team, registration link) now
+     writes straight to this shared database — automatic, no manual
+     download/replace step. Every visitor's browser listens to the same
+     database in real time. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-init.js"></script>
+<script src="js/site-live-sync.js"></script>
+<style>
+/* =====================================================================
+   DESIGN TOKENS
+   ===================================================================== */
+:root{
+  --bg:#07080b; --surface:#111318; --surface2:#191b22; --surface3:#1f2130;
+  --ink:#f4f4f6; --muted:#9a9a9a; --muted2:#5a5c68;
+  --accent:#FF5A00; --accent-dim:rgba(255,90,0,0.14); --accent-border:rgba(255,90,0,0.35);
+  --green:#35d68a; --green-dim:rgba(53,214,138,0.1); --green-border:rgba(53,214,138,0.28);
+  --amber:#ffb020;
+  --line:rgba(255,255,255,0.09); --line-hover:rgba(255,255,255,0.2);
+  --radius:12px; --radius-sm:8px;
+  --font-ui:'Inter',sans-serif;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;-webkit-font-smoothing:antialiased;}
+body{
+  background-image:
+    radial-gradient(ellipse 900px 500px at 15% -10%,rgba(255,90,0,0.07),transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 10%,rgba(255,176,32,0.04),transparent 60%);
+  min-height:100vh;
+}
+h1,h2,h3{font-family:var(--font-display);margin:0;}
+a{color:inherit;text-decoration:none;}
+code{font-family:var(--font-mono);font-size:.9em;}
+
+/* =====================================================================
+   TOP MODE BAR
+   ===================================================================== */
+.modebar{
+  background:rgba(7,8,11,.9);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);
+  padding:14px 26px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;
+  position:sticky;top:0;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;font-size:15px;}
+.brand .mark{width:22px;height:22px;position:relative;}
+.brand .mark .c1,.brand .mark .c2{position:absolute;width:13px;height:13px;border-radius:50%;}
+.brand .mark .c1{background:var(--accent);top:0;left:0;}
+.brand .mark .c2{background:var(--ink);bottom:0;right:0;opacity:.8;}
+
+.tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:10px;}
+.tab{
+  padding:9px 18px;border-radius:8px;
+  font-size:12.5px;font-weight:600;font-family:var(--font-display);
+  cursor:pointer;color:var(--muted);background:transparent;border:none;
+  transition:background .18s,color .18s;
+}
+.tab.active{background:var(--accent);color:#140D0A;}
+.tab:hover:not(.active){background:var(--surface3);color:var(--ink);}
+
+.conn{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 0 rgba(53,214,138,.55);animation:ldpulse 1.8s infinite;}
+@keyframes ldpulse{0%{box-shadow:0 0 0 0 rgba(53,214,138,.55);}70%{box-shadow:0 0 0 7px rgba(53,214,138,0);}100%{box-shadow:0 0 0 0 rgba(53,214,138,0);}}
+.waveform{display:flex;align-items:flex-end;gap:2px;height:12px;margin-left:2px;}
+.waveform span{width:2px;background:var(--green);border-radius:1px;animation:wv .9s ease-in-out infinite;}
+.waveform span:nth-child(1){animation-delay:0s;}
+.waveform span:nth-child(2){animation-delay:.15s;}
+.waveform span:nth-child(3){animation-delay:.3s;}
+.waveform span:nth-child(4){animation-delay:.45s;}
+@keyframes wv{0%,100%{height:3px;}50%{height:12px;}}
+
+.view{display:none;} .view.active{display:block;}
+
+/* =====================================================================
+   SHARED FORM COMPONENTS
+   ===================================================================== */
+.wrap{max-width:860px;margin:0 auto;padding:36px 24px 100px;}
+.eyebrow{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+h1.pg{font-family:var(--font-display);font-size:22px;font-weight:700;margin-bottom:6px;}
+p.lede{color:var(--muted);font-size:13px;margin-bottom:28px;max-width:520px;line-height:1.6;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px;transition:border-color .2s;}
+.card:hover{border-color:var(--line-hover);}
+.card h3{font-family:var(--font-display);font-size:14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.field-label{font-size:10.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;display:block;}
+.field{width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:var(--radius-sm);padding:11px 13px;font-size:13.5px;font-family:var(--font-ui);margin-bottom:14px;transition:border-color .15s,box-shadow .15s;}
+.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+textarea.field{resize:vertical;min-height:70px;}
+select.field{appearance:none;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.btn{padding:10px 18px;border-radius:var(--radius-sm);font-family:var(--font-display);font-weight:600;font-size:13px;border:1px solid var(--line);cursor:pointer;display:inline-flex;align-items:center;gap:8px;background:var(--surface2);color:var(--ink);transition:border-color .15s,background .15s,transform .1s;}
+.btn:hover{border-color:var(--line-hover);background:var(--surface3);}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#140D0A;}
+.btn-primary:hover{background:#ff7020;border-color:#ff7020;}
+.btn-outline{background:transparent;border:1px solid var(--accent-border);color:var(--ink);}
+.btn-full{width:100%;justify-content:center;}
+.btn-sm{padding:7px 12px;font-size:12px;}
+.btn-danger{color:#ff6b6b;}
+.thumb{width:100%;height:140px;object-fit:cover;border-radius:8px;border:1px solid var(--line);margin-bottom:12px;background:var(--surface2);}
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:14px;}
+.status-pill.open{background:var(--green-dim);color:var(--green);}
+.status-pill.closed{background:var(--accent-dim);color:var(--accent);}
+.status-pill.live{background:#2b2410;color:#f0c65a;}
+.feed-item{padding:12px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;gap:10px;}
+.feed-item:last-child{border-bottom:none;}
+.feed-item b{color:var(--ink);font-weight:500;}
+.feed-item .ftime{font-family:var(--font-mono);font-size:10.5px;color:var(--muted2);white-space:nowrap;}
+.del-x{color:var(--muted2);cursor:pointer;font-size:14px;margin-left:8px;}
+.del-x:hover{color:#ff6b6b;}
+
+/* Stepper */
+.stepper{display:flex;align-items:center;border:1px solid var(--accent-border);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface2);}
+.stepper button{padding:10px 14px;background:transparent;border:none;color:var(--ink);font-weight:bold;cursor:pointer;font-size:16px;transition:background .15s;}
+.stepper button:hover{background:var(--surface3);}
+.stepper input{width:54px;text-align:center;border:none;padding:10px 0;background:transparent;color:var(--ink);font-size:14px;}
+
+/* =====================================================================
+   PUBLIC VIEW
+   ===================================================================== */
+.pub-hero{position:relative;height:300px;overflow:hidden;border-bottom:1px solid var(--line);}
+.pub-hero img{width:100%;height:100%;object-fit:cover;display:block;}
+.pub-hero .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,11,.1) 0%,rgba(7,8,11,.95) 100%);display:flex;flex-direction:column;justify-content:flex-end;padding:28px;}
+.pub-hero h1{font-family:var(--font-display);font-weight:700;font-size:26px;margin-bottom:6px;}
+.pub-status-row{display:flex;align-items:center;gap:12px;padding:14px 28px;border-bottom:1px solid var(--line);background:var(--surface);}
+.pub-body{padding:28px;}
+.pub-section{margin-bottom:28px;}
+.pub-section h2{font-family:var(--font-display);font-size:14px;margin-bottom:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.payment-banner{background:var(--surface);border:1px solid var(--green-border);border-radius:var(--radius-sm);padding:16px 20px;margin-bottom:22px;font-size:13.5px;}
+.payment-banner b{color:var(--green);}
+.video-embed{border:1px solid var(--line);border-radius:var(--radius-sm);padding:14px;font-size:12.5px;color:var(--muted);background:var(--surface);}
+.video-embed a{color:var(--accent);}
+.last-sync{font-family:var(--font-mono);font-size:10.5px;color:var(--muted2);text-align:center;padding:20px;}
+
+/* Public view — partner cards (read-only) */
+.pub-partners-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.pub-partner-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s;}
+.pub-partner-card:hover{border-color:var(--line-hover);}
+.pub-partner-top{display:flex;align-items:center;gap:12px;}
+.pub-partner-logo{width:44px;height:44px;border-radius:8px;background:#0d0e12;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.pub-partner-logo img{width:80%;height:80%;object-fit:contain;}
+.pub-partner-logo .no-logo{font-size:9px;color:var(--muted2);text-align:center;line-height:1.2;padding:2px;}
+.pub-partner-name{font-family:var(--font-display);font-size:13.5px;font-weight:600;line-height:1.3;}
+.pub-partner-role{font-size:11.5px;color:var(--muted);margin-top:1px;}
+.pub-partner-badge{display:inline-block;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-border);width:fit-content;}
+.pub-partner-desc{font-size:12px;color:var(--muted);line-height:1.55;}
+.pub-partner-link{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;margin-top:2px;}
+.pub-partner-link:hover{text-decoration:underline;}
+.pub-partners-empty{font-size:12.5px;color:var(--muted2);padding:16px 0;}
+
+/* =====================================================================
+   PARTNERS DECK
+   ===================================================================== */
+.deck-intro{color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:22px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:10px;}
+.deck-intro strong{color:var(--ink);font-weight:600;}
+.deck-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;}
+
+.partner-deck-card{display:grid;grid-template-columns:44px 1fr;gap:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;overflow:hidden;transition:border-color .2s;}
+.partner-deck-card:hover{border-color:var(--line-hover);}
+.card-rail{background:var(--surface2);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:16px 0;}
+.rail-num{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--accent);}
+.rail-order-btns{display:flex;flex-direction:column;gap:4px;}
+.rail-btn{width:26px;height:22px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:5px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;}
+.rail-btn:hover{color:var(--ink);border-color:var(--line-hover);}
+.rail-btn:disabled{opacity:.25;cursor:default;}
+.card-body{padding:20px 22px;}
+.card-body-grid{display:grid;grid-template-columns:132px 1fr;gap:20px;}
+.logo-col{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.logo-preview{width:100%;aspect-ratio:1;border-radius:10px;background:#0d0e12;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.logo-preview img{width:78%;height:78%;object-fit:contain;}
+.logo-preview.empty{color:var(--muted2);font-size:11px;text-align:center;padding:8px;}
+.logo-upload-btn{font-size:11px;width:100%;justify-content:center;}
+.member-photo-preview{width:56px;height:56px;border-radius:50%;background:#0d0e12;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.member-photo-preview img{width:100%;height:100%;object-fit:cover;}
+.member-photo-preview.empty{color:var(--muted2);font-size:9px;text-align:center;line-height:1.2;padding:2px;}
+.member-photo-upload-btn{font-size:11px;white-space:nowrap;}
+.logo-path-input{width:100%;font-size:11px;padding:6px 8px;text-align:center;}
+.field-group{display:flex;flex-direction:column;gap:4px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.field-full{margin-bottom:14px;}
+label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted2);}
+input[type="text"],input[type="url"],textarea,select{font-family:var(--font-ui);background:#0d0e12;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13.5px;color:var(--ink);width:100%;resize:vertical;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+textarea{min-height:54px;line-height:1.5;font-family:var(--font-ui);}
+.type-select{max-width:220px;}
+.card-footer-row{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-top:14px;border-top:1px solid var(--line);}
+.link-toggle-row{display:flex;align-items:center;gap:8px;}
+.link-fields{display:none;grid-template-columns:1.3fr 1fr;gap:14px;margin-top:12px;}
+.link-fields.visible{display:grid;}
+input[type="checkbox"]{width:15px;height:15px;accent-color:var(--accent);}
+.add-partner-btn{width:100%;padding:16px;border:1.5px dashed var(--line);border-radius:var(--radius);background:transparent;color:var(--muted);font-family:var(--font-ui);font-size:13.5px;font-weight:500;cursor:pointer;transition:border-color .15s,color .15s,background .15s;}
+.add-partner-btn:hover{border-color:var(--accent);color:var(--ink);background:var(--accent-dim);}
+input[type="file"]{display:none;}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+
+/* =====================================================================
+   TOASTS
+   ===================================================================== */
+.toast-event{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green);color:#08150f;font-family:var(--font-display);font-weight:600;font-size:13px;padding:12px 22px;border-radius:8px;opacity:0;transition:all .25s;pointer-events:none;z-index:999;}
+.toast-event.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast-deck{position:fixed;bottom:22px;right:22px;background:var(--surface2);border:1px solid var(--green-border);color:var(--green);font-size:12.5px;font-weight:500;padding:9px 16px;border-radius:999px;display:flex;align-items:center;gap:7px;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;z-index:999;}
+.toast-deck.show{opacity:1;transform:translateY(0);}
+
+@media(max-width:680px){
+  .card-body-grid{grid-template-columns:1fr;} .field-row,.link-fields{grid-template-columns:1fr;}
+  .logo-col{flex-direction:row;align-items:center;} .logo-preview{width:60px;height:60px;flex-shrink:0;}
+  .grid2{grid-template-columns:1fr;} .modebar{padding:12px 16px;}
+  .tabs .tab{padding:8px 10px;font-size:11px;} .wrap{padding:22px 14px 100px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     MODE BAR — 3 tabs
+     ============================================================ -->
+<div class="modebar">
+  <div class="brand">
+    <div class="mark"><div class="c1"></div><div class="c2"></div></div>
+    GCC FusionX 1.0
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tabEvent"  onclick="switchView('event')">&#9881; Event Control</button>
+    <button class="tab"        id="tabDeck"   onclick="switchView('deck')">&#127183; Partners Deck</button>
+    <button class="tab"        id="tabTeam"   onclick="switchView('team')">&#128101; Team Deck</button>
+    <button class="tab"        id="tabPublic" onclick="switchView('public')">&#127760; Public View</button>
+  </div>
+  <div class="conn">
+    <span class="live-dot"></span> live sync
+    <span class="waveform"><span></span><span></span><span></span><span></span></span>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 1  EVENT CONTROL
+     ============================================================ -->
+<div class="view active" id="view-event">
+  <div class="wrap">
+    <div class="eyebrow">Organizer access only</div>
+    <h1 class="pg">Event Control Panel</h1>
+    <p class="lede">Changes you publish here save straight to the live database and appear on every device automatically — no manual export/replace step needed.</p>
+
+    <div class="card" style="border-color:var(--accent,#ff5a00);">
+      <h3>&#128279; Registration Link (Hack2Skill)</h3>
+      <label class="field-label">Paste your live Hack2Skill (or any) registration form URL here</label>
+      <input class="field" id="regLinkInput" placeholder="https://hack2skill.com/hackathon/your-form-slug">
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="saveRegLink()">Save &amp; publish link</button>
+      <div id="regLinkStatus" style="margin-top:8px;font-size:12.5px;color:var(--muted);"></div>
+      <p style="margin-top:10px;font-size:12px;color:var(--muted);">
+        Every "Register" / "Join" button across the whole site (desktop and mobile) will point here
+        automatically the instant you save &#8212; no code edit, no redeploy.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>&#128225; Event Status</h3>
+      <label class="field-label">Status shown on the public page</label>
+      <select class="field" id="statusInput">
+        <option value="open">Registration Open</option>
+        <option value="closing">Closing Soon</option>
+        <option value="closed">Registration Closed</option>
+        <option value="live">Event Live &#8212; Day of Hackathon</option>
+        <option value="ended">Event Ended</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <h3>&#128226; Post Announcement</h3>
+      <label class="field-label">Update text</label>
+      <textarea class="field" id="updateInput" placeholder="e.g. Theme 'Sustainability &amp; Environment' is now full."></textarea>
+      <button class="btn btn-outline" onclick="postUpdate()">+ Add to feed</button>
+      <div id="feedList" style="margin-top:16px;"></div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="publishAll()">Publish all changes to Public View &#8594;</button>
+    <button class="btn btn-outline btn-full" style="margin-top:10px;" onclick="resetEventData()">Reset demo data</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 2  PARTNERS DECK
+     ============================================================ -->
+<div class="view" id="view-deck">
+  <div class="wrap">
+    <div class="eyebrow">Partners carousel editor</div>
+    <h1 class="pg">Partners Control Deck</h1>
+    <div class="deck-intro" style="border-color:var(--green,#2ecc71);">
+      <strong>&#9989; Automatic now:</strong> every change here saves straight to the live
+      database and updates <code>index.html</code> everywhere &#8212; this browser, other
+      devices, mobile, even after you close this tab or share/host the code. No download,
+      no manual file replace needed.
+    </div>
+    <div class="deck-actions">
+      <button class="btn btn-sm" id="btnExport">Export JSON (backup)</button>
+      <button class="btn btn-sm" id="btnImport">Import JSON</button>
+      <input type="file" id="importFile" accept="application/json">
+      <button class="btn btn-sm btn-danger" id="btnReset">Reset to defaults</button>
+      <a class="btn btn-sm btn-primary" href="index.html" target="_blank" rel="noopener">View live page &#8599;</a>
+    </div>
+    <div id="cardsList"></div>
+    <button class="add-partner-btn" id="btnAdd">+ Add partner / sponsor</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 2b  TEAM DECK (Guide the Vision / Organizers)
+     ============================================================ -->
+<div class="view" id="view-team">
+  <div class="wrap">
+    <div class="eyebrow">Organizer editor</div>
+    <h1 class="pg">Team Control Deck</h1>
+    <div class="deck-intro">
+      <strong>How this works:</strong> this edits the "Guide the Vision" and "Organizers"
+      groups shown on <code>index.html</code>'s desktop People section AND the
+      mobile Organizers accordion &#8212; both read the same data, so a change here updates
+      both at once.
+    </div>
+    <div class="deck-intro" style="border-color:var(--green,#2ecc71);">
+      <strong>&#9989; Automatic now:</strong> every change here saves straight to the live
+      database and updates everywhere &#8212; this browser, other devices, mobile, even after
+      you close this tab or share/host the code. No download, no manual file replace needed.
+    </div>
+    <div class="deck-actions">
+      <button class="btn btn-sm btn-danger" id="btnTeamReset">Reset to defaults</button>
+      <a class="btn btn-sm btn-primary" href="index.html" target="_blank" rel="noopener">View live page &#8599;</a>
+    </div>
+    <div id="teamGroupsList"></div>
+    <button class="btn btn-primary btn-full" style="margin-top:18px;" onclick="publishTeam()">Publish all changes to Public View &#8594;</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 3  PUBLIC VIEW
+     ============================================================ -->
+<div class="view" id="view-public">
+  <div class="pub-hero">
+    <img id="pubHeroImg" src="" alt="event">
+    <div class="overlay">
+      <h1>FUSIONX 1.0 &#8212; Where Ideas Collide</h1>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:4px;">Paavai Engineering College &middot; Dept of IT &times; Growing Coders Club</div>
+    </div>
+  </div>
+  <div class="pub-status-row">
+    <span class="status-pill open" id="pubStatusPill">Registration Open</span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted2);">Updated live by event organizers</span>
+  </div>
+  <div style="max-width:860px;margin:0 auto;padding:0 0 80px;">
+    <div class="pub-body">
+      <div class="payment-banner" id="pubPaymentBanner" style="display:none;">
+        <b>Payment update:</b> <span id="pubPaymentText"></span>
+      </div>
+      <div class="pub-section">
+        <h2>Event Highlight Video</h2>
+        <div class="video-embed" id="pubVideoBox">No video posted yet.</div>
+      </div>
+      <div class="pub-section">
+        <h2>Live Announcements</h2>
+        <div id="pubFeed"></div>
+      </div>
+      <div class="pub-section">
+        <h2>Partners &amp; Sponsors</h2>
+        <div id="pubPartnersList"></div>
+      </div>
+    </div>
+  </div>
+  <div class="last-sync" id="lastSync">syncing...</div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-event" id="toastEvent">Published &#10003;</div>
+<div class="toast-deck"  id="toastDeck">&#10003; Saved &#8212; live on index.html</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ==============================================================
+   A — EVENT CONTROL (Tabs 1 + 3)
+   ============================================================== */
+var STORE_KEY = 'gcc_fusionx_live_state';
+var DEFAULT_STATE = {
+  heroImage: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
+  video: '', status: 'open', paymentNote: '',
+  updates: [{ id: 1, text: 'Registrations are now open — 30 team slots across 5 themes.', time: new Date().toLocaleString() }]
+};
+var THEMES = ['Smart Campus & Education','AI for Social Good','Sustainability & Environment','Healthcare & Medical Innovation','Open Innovation & Emerging Tech'];
+
+function sLabel(s){ return {open:'Registration Open',closing:'Closing Soon',closed:'Registration Closed',live:'Event Live — Day of Hackathon',ended:'Event Ended'}[s]||s; }
+function sClass(s){ if(s==='open') return 'open'; if(s==='closed'||s==='ended') return 'closed'; return 'live'; }
+function loadEvState(){ try{ var r=localStorage.getItem(STORE_KEY); return r?JSON.parse(r):JSON.parse(JSON.stringify(DEFAULT_STATE)); }catch(e){ return JSON.parse(JSON.stringify(DEFAULT_STATE)); } }
+function saveEvState(state){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(state)); return true; }catch(e){ return false; } }
+
+var localState = loadEvState();
+var latestSlots = null;
+
+/* ==============================================================
+   LIVE PUBLISH — writes partners + team + registration link
+   straight to Firestore. This is what makes admin edits automatic:
+   no download, no manual file replace, works the same whether this
+   admin page is opened locally or on the hosted site.
+   ============================================================== */
+var REG_LINK_KEY = 'fusionx_registration_link';
+var registrationLink = (function(){ try{ return localStorage.getItem(REG_LINK_KEY) || ''; }catch(e){ return ''; } })();
+
+function publishLive(){
+  if(!window.FX_DOC){
+    // Firebase not connected (offline, blocked, or not yet configured) —
+    // edits still work locally via localStorage, just not automatically
+    // synced everywhere until connection is available.
+    return;
+  }
+  window.FX_DOC.set({
+    partners: partners,
+    team: teamData,
+    registrationLink: registrationLink
+  }, { merge: true }).catch(function(err){
+    console.warn('[FusionX] Live publish failed:', err);
+  });
+}
+
+function saveRegLink(){
+  var v = document.getElementById('regLinkInput').value.trim();
+  registrationLink = v;
+  try{ localStorage.setItem(REG_LINK_KEY, v); }catch(e){}
+  publishLive();
+  var st = document.getElementById('regLinkStatus');
+  st.style.color = 'var(--green)';
+  st.textContent = v ? 'Saved \u2713 every Register button on the site now points here.' : 'Cleared \u2014 Register buttons reverted to the placeholder.';
+}
+
+// Hydrate the registration link field once the page (and, if connected,
+// Firestore's live value) is ready.
+function hydrateRegLink(){
+  var input = document.getElementById('regLinkInput');
+  if(!input) return;
+  var live = window.FX_PUBLISHED_DATA && window.FX_PUBLISHED_DATA.registrationLink;
+  if(live){ registrationLink = live; }
+  input.value = registrationLink || '';
+}
+window.addEventListener('fx:live-update', hydrateRegLink);
+document.addEventListener('DOMContentLoaded', hydrateRegLink);
+
+// If this browser has no unpublished local draft, adopt the live
+// Firestore data the moment it arrives (covers first load / a fresh
+// browser / a fresh copy of the project that hasn't edited anything yet).
+var PARTNERS_KEY_PROBE = 'fusionx_partners_store';
+var TEAM_KEY_PROBE = 'fusionx_team_store';
+window.addEventListener('fx:live-update', function(){
+  var hasPartnersDraft, hasTeamDraft;
+  try{ hasPartnersDraft = !!localStorage.getItem(PARTNERS_KEY_PROBE); }catch(e){ hasPartnersDraft = false; }
+  try{ hasTeamDraft = !!localStorage.getItem(TEAM_KEY_PROBE); }catch(e){ hasTeamDraft = false; }
+  if(!hasPartnersDraft){ partners = FXP.load(); if(typeof renderDeck==='function') renderDeck(); }
+  if(!hasTeamDraft){ teamData = FXT.load(); if(typeof renderTeamDeck==='function') renderTeamDeck(); }
+});
+
+
+function loadSlots(){
+  var raw=null;
+  try{ raw=localStorage.getItem('fusionx_slots_store'); if(raw) latestSlots=JSON.parse(raw); }catch(e){}
+  var defMax=parseInt(document.getElementById('globalSlotInput').value)||6;
+  if(!latestSlots) latestSlots={defaultSlotsPerTheme:defMax,themes:{}};
+  THEMES.forEach(function(t){ if(!latestSlots.themes[t]) latestSlots.themes[t]={used:0,remaining:defMax,total:defMax,isFull:false}; });
+  var html='';
+  Object.keys(latestSlots.themes).forEach(function(theme){
+    var info=latestSlots.themes[theme];
+    var pct=Math.min(100,Math.round((info.used/info.total)*100));
+    var st=info.isFull
+      ?'<span style="color:var(--accent);font-weight:bold;font-size:11.5px;">FULL (0/'+info.total+' left)</span>'
+      :'<span style="color:var(--green);font-size:11.5px;">'+info.remaining+'/'+info.total+' slots left</span>';
+    html+='<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px;"><span><b>'+theme+'</b></span>'+st+'</div>'
+         +'<div style="height:7px;background:var(--surface2);border:1px solid var(--line);border-radius:4px;overflow:hidden;">'
+         +'<div style="width:'+pct+'%;height:100%;background:'+(info.isFull?'var(--accent)':'linear-gradient(90deg,var(--accent),var(--green))')+';transition:width .4s ease;"></div></div></div>';
+  });
+  document.getElementById('adminSlotsList').innerHTML=html;
+  updateBalanceView();
+}
+
+function updateBalanceView(){
+  var sel=document.getElementById('adminSlotThemeSelect');
+  var badge=document.getElementById('balanceBadge');
+  var ratio=document.getElementById('balanceRatio');
+  var usedEl=document.getElementById('balanceUsed');
+  var inp=document.getElementById('themeSlotInput');
+  if(!sel||!badge) return;
+  var t=sel.value;
+  var info=(latestSlots&&latestSlots.themes&&latestSlots.themes[t])||{used:0,remaining:6,total:6,isFull:false};
+  ratio.textContent=info.remaining+' / '+info.total+' Slots Remaining';
+  usedEl.textContent='Registered: '+info.used+' team(s) \u00b7 Available: '+info.remaining+' slot(s)';
+  if(document.activeElement!==inp) inp.value=info.total;
+  if(info.isFull||info.remaining<=0){ badge.textContent='FULL'; badge.style.background='rgba(255,90,0,.2)'; badge.style.color='var(--accent)'; }
+  else{ badge.textContent='AVAILABLE'; badge.style.background='var(--green-dim)'; badge.style.color='var(--green)'; }
+}
+
+function stepSlot(id,d){ var el=document.getElementById(id); el.value=Math.max(1,Math.min(15,(parseInt(el.value)||6)+d)); }
+
+function saveGlobalSlot(){
+  var n=parseInt(document.getElementById('globalSlotInput').value);
+  var st=document.getElementById('globalSlotStatus');
+  if(isNaN(n)||n<1){ st.style.color='var(--accent)'; st.textContent='Min 1 slot.'; return; }
+  if(!latestSlots) latestSlots={defaultSlotsPerTheme:n,themes:{}};
+  latestSlots.defaultSlotsPerTheme=n;
+  THEMES.forEach(function(t){ var u=(latestSlots.themes[t]&&latestSlots.themes[t].used)||0; latestSlots.themes[t]={used:u,remaining:Math.max(0,n-u),total:n,isFull:u>=n}; });
+  localStorage.setItem('fusionx_slots_store',JSON.stringify(latestSlots));
+  st.style.color='var(--green)'; st.textContent='All themes set to '+n+' slots \u2713';
+  loadSlots();
+}
+
+function saveThemeSlot(){
+  var t=document.getElementById('adminSlotThemeSelect').value;
+  var n=parseInt(document.getElementById('themeSlotInput').value);
+  var st=document.getElementById('themeSlotStatus');
+  if(!t||isNaN(n)||n<1){ st.style.color='var(--accent)'; st.textContent='Select a theme and enter valid slots.'; return; }
+  if(!latestSlots) latestSlots={defaultSlotsPerTheme:6,themes:{}};
+  var u=(latestSlots.themes[t]&&latestSlots.themes[t].used)||0;
+  latestSlots.themes[t]={used:u,remaining:Math.max(0,n-u),total:n,isFull:u>=n};
+  localStorage.setItem('fusionx_slots_store',JSON.stringify(latestSlots));
+  st.style.color='var(--green)'; st.textContent='"'+t+'" updated to '+n+' slots \u2713';
+  loadSlots();
+}
+
+function escHtml(s){ var d=document.createElement('div'); d.innerText=s; return d.innerHTML; }
+
+function renderFeedAdmin(){
+  var el=document.getElementById('feedList');
+  var items=(localState.updates||[]).slice().reverse();
+  el.innerHTML=items.length?items.map(function(u){
+    return '<div class="feed-item"><span><b>'+escHtml(u.text)+'</b></span><span class="ftime">'+u.time+' <span class="del-x" onclick="delUpdate('+u.id+')">&#10005;</span></span></div>';
+  }).join(''):'<div class="feed-item">No announcements yet.</div>';
+}
+
+function postUpdate(){
+  var t=document.getElementById('updateInput').value.trim();
+  if(!t) return;
+  localState.updates=localState.updates||[];
+  localState.updates.push({id:Date.now(),text:t,time:new Date().toLocaleString()});
+  document.getElementById('updateInput').value='';
+  renderFeedAdmin();
+}
+function delUpdate(id){ localState.updates=(localState.updates||[]).filter(function(u){ return u.id!==id; }); renderFeedAdmin(); }
+function previewHero(){ document.getElementById('heroPreview').src=document.getElementById('heroImageInput').value; }
+
+function hydrateAdmin(){
+  localState=loadEvState();
+  document.getElementById('heroImageInput').value=localState.heroImage||'';
+  document.getElementById('heroPreview').src=localState.heroImage||'';
+  document.getElementById('videoInput').value=localState.video||'';
+  document.getElementById('statusInput').value=localState.status||'open';
+  document.getElementById('paymentInput').value=localState.paymentNote||'';
+  renderFeedAdmin(); loadSlots();
+}
+
+function publishAll(){
+  localState.heroImage=document.getElementById('heroImageInput').value;
+  localState.video=document.getElementById('videoInput').value;
+  localState.status=document.getElementById('statusInput').value;
+  localState.paymentNote=document.getElementById('paymentInput').value;
+  var ok=saveEvState(localState);
+  showEvToast(ok?'Published to Public View \u2713':'Publish failed \u2014 try again');
+  renderPublic(localState);
+}
+
+function resetEventData(){ localState=JSON.parse(JSON.stringify(DEFAULT_STATE)); saveEvState(localState); hydrateAdmin(); showEvToast('Demo data reset'); }
+function showEvToast(msg){ var t=document.getElementById('toastEvent'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2200); }
+
+function renderPublic(state){
+  document.getElementById('pubHeroImg').src=state.heroImage||DEFAULT_STATE.heroImage;
+  var pill=document.getElementById('pubStatusPill');
+  pill.textContent=sLabel(state.status); pill.className='status-pill '+sClass(state.status);
+  var banner=document.getElementById('pubPaymentBanner');
+  if(state.paymentNote&&state.paymentNote.trim()){ banner.style.display='block'; document.getElementById('pubPaymentText').textContent=state.paymentNote; }
+  else banner.style.display='none';
+  document.getElementById('pubVideoBox').innerHTML=state.video?'&#9654; <a href="'+state.video+'" target="_blank">'+state.video+'</a>':'No video posted yet.';
+  var upds=(state.updates||[]).slice().reverse();
+  document.getElementById('pubFeed').innerHTML=upds.length?upds.map(function(u){ return '<div class="feed-item"><span>'+escHtml(u.text)+'</span><span class="ftime">'+u.time+'</span></div>'; }).join(''):'<div class="feed-item">No announcements yet.</div>';
+  document.getElementById('lastSync').textContent='last synced '+new Date().toLocaleTimeString();
+  renderPublicPartners(partners);
+}
+
+function renderPublicPartners(pts){
+  // Use passed array (live in-memory) so public view is always in sync with admin deck
+  if(!pts) pts = partners;
+  var el=document.getElementById('pubPartnersList'); if(!el) return;
+  if(!pts.length){ el.innerHTML='<div class="pub-partners-empty">No partners added yet.</div>'; return; }
+  el.innerHTML='<div class="pub-partners-grid">'+pts.map(function(p){
+    var logoHtml=p.logo
+      ?'<img src="'+escAttr(p.logo)+'" alt="'+escAttr(p.name)+'">'
+      :'<span class="no-logo">No logo</span>';
+    var ctaHtml=(p.linkText&&p.linkUrl)
+      ?'<a class="pub-partner-link" href="'+escAttr(p.linkUrl)+'" target="_blank" rel="noopener">'+escHtml(p.linkText)+' &#8599;</a>'
+      :'';
+    return '<div class="pub-partner-card">'
+      +'<div class="pub-partner-top">'
+      +'<div class="pub-partner-logo">'+logoHtml+'</div>'
+      +'<div><div class="pub-partner-name">'+escHtml(p.name||'Unnamed')+'</div>'
+      +'<div class="pub-partner-role">'+escHtml(p.role||'')+'</div></div>'
+      +'</div>'
+      +(p.type?'<div class="pub-partner-badge">'+escHtml(p.type)+'</div>':'')
+      +(p.partnerDesc?'<div class="pub-partner-desc">'+escHtml(p.partnerDesc)+'</div>':'')
+      +ctaHtml
+      +'</div>';
+  }).join('')+'</div>';
+}
+
+function pollPublic(){ if(!document.getElementById('view-public').classList.contains('active')) return; renderPublic(loadEvState()); }
+
+/* ==============================================================
+   B — PARTNERS DECK (Tab 2)
+   ============================================================== */
+var PARTNERS_KEY = 'fusionx_partners_store';
+var TYPE_OPTIONS = ['Community Partner','Platform Partner','Sponsor','Flagship Collaboration','Media Partner','Custom'];
+var DEFAULT_PARTNERS = [
+  {id:'p1',logo:'assets/gdg-logo.png',type:'Community Partner',eyebrow:'Together We Build',headingWhite:'Community',headingAccent:'Partners',desc:'We collaborate with forward-thinking organizations and communities to empower builders, innovators, and future leaders.',name:'Google Developer Groups',role:'Community Partner',partnerDesc:'Empowering student developers through learning, sharing, and building cutting-edge applications together.',linkText:'',linkUrl:''},
+  {id:'p2',logo:'assets/gcc-logo.png',type:'Organizing Partner',eyebrow:'Powering The Build',headingWhite:'Organizing',headingAccent:'Partners',desc:'Fostering programmatic excellence, peer learning, and hands-on developer experiences across the ecosystem.',name:'Growing Coders Club',role:'Organizing Partner',partnerDesc:'Building a community of passionate developers through workshops, hackathons, and collaborative projects.',linkText:'',linkUrl:''},
+  {id:'p3',logo:'partners/devfolio-mark.svg',type:'Platform Partner',eyebrow:'Ideas Today, Impact Tomorrow',headingWhite:'Platform',headingAccent:'Partners',desc:'We team up with platforms that power builders across the ecosystem, from first commit to demo day.',name:'Devfolio',role:'Platform Partner',partnerDesc:"Powering India's largest hackathons with seamless project submission, judging, and builder ecosystem tools.",linkText:'',linkUrl:''}
+];
+
+var FXP = {
+  // Start from: 1) an in-progress unpublished draft in this browser, if
+  // any, 2) otherwise the real published data (data/site-data.js) so the
+  // admin is always editing on top of what's actually live, 3) otherwise
+  // the hardcoded demo defaults (only true on a totally fresh copy of
+  // the project where data/site-data.js hasn't been created yet).
+  load: function(){
+    try{
+      var r=localStorage.getItem(PARTNERS_KEY);
+      if(r){ var d=JSON.parse(r); if(Array.isArray(d)&&d.length) return d; }
+    }catch(e){}
+    var pub=window.FX_PUBLISHED_DATA&&window.FX_PUBLISHED_DATA.partners;
+    if(Array.isArray(pub)&&pub.length) return JSON.parse(JSON.stringify(pub));
+    return JSON.parse(JSON.stringify(DEFAULT_PARTNERS));
+  },
+  save: function(arr){
+    localStorage.setItem(PARTNERS_KEY,JSON.stringify(arr));
+    publishLive();
+  },
+  reset: function(){ var d=JSON.parse(JSON.stringify(DEFAULT_PARTNERS)); partners=d; FXP.save(d); return d; },
+  blank: function(){ return {id:'p'+Date.now(),logo:'',type:'Community Partner',eyebrow:'Together We Build',headingWhite:'',headingAccent:'Partners',desc:'',name:'',role:'',partnerDesc:'',linkText:'',linkUrl:''}; }
+};
+
+var partners = FXP.load();
+var toastDeckTimer = null;
+
+/* ==============================================================
+   PUBLISH — turns the current in-browser draft (partners + team,
+   whatever is in memory right now) into a downloadable copy of
+   data/site-data.js. The admin replaces that one file in the
+   project and re-shares/re-hosts — that's what makes an edit
+   PERMANENT instead of living only in this browser's localStorage.
+   ============================================================== */
+function downloadPublishedData(){
+  var payload = {
+    partners: partners,
+    team: teamData
+  };
+  var body = "/* ==================================================================\n"
+    + "   FUSIONX \u2014 PUBLISHED SITE DATA (the real, permanent source of truth)\n"
+    + "   Generated by admin-portal.html on " + new Date().toLocaleString() + "\n"
+    + "   Replace the existing data/site-data.js in your project with this\n"
+    + "   file, then re-zip / re-upload / redeploy. Every visitor \u2014 web or\n"
+    + "   mobile, any browser \u2014 will then see exactly this data, permanently.\n"
+    + "   ================================================================== */\n"
+    + "window.FX_PUBLISHED_DATA = " + JSON.stringify(payload, null, 2) + ";\n";
+  var blob = new Blob([body], {type: 'text/javascript'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'site-data.js';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showDeckToast();
+}
+
+function showDeckToast(){ var t=document.getElementById('toastDeck'); t.classList.add('show'); clearTimeout(toastDeckTimer); toastDeckTimer=setTimeout(function(){ t.classList.remove('show'); },1600); }
+function persistDeck(){ FXP.save(partners); showDeckToast(); renderPublicPartners(partners); }
+function escAttr(s){ return String(s||'').replace(/"/g,'&quot;'); }
+function typeOpts(cur){
+  var opts=TYPE_OPTIONS.indexOf(cur)>=0?TYPE_OPTIONS:[cur].concat(TYPE_OPTIONS);
+  return opts.map(function(o){ return '<option value="'+escAttr(o)+'"'+(o===cur?' selected':'')+'>'+o+'</option>'; }).join('');
+}
+
+function cardTemplate(p,i,tot){
+  var hasLink=!!(p.linkUrl&&p.linkUrl.trim());
+  var logo=p.logo?'<img src="'+escAttr(p.logo)+'" alt="">':'<span>No logo yet</span>';
+  return '<div class="partner-deck-card" data-id="'+p.id+'">'
+    +'<div class="card-rail">'
+    +'<div class="rail-num">'+String(i+1).padStart(2,'0')+'</div>'
+    +'<div class="rail-order-btns">'
+    +'<button class="rail-btn" data-action="up" '+(i===0?'disabled':'')+' title="Move earlier">&#9650;</button>'
+    +'<button class="rail-btn" data-action="down" '+(i===tot-1?'disabled':'')+' title="Move later">&#9660;</button>'
+    +'</div></div>'
+    +'<div class="card-body"><div class="card-body-grid">'
+    +'<div class="logo-col">'
+    +'<div class="logo-preview '+(p.logo?'':'empty')+'" data-logo-preview>'+logo+'</div>'
+    +'<button class="btn btn-sm logo-upload-btn" data-action="upload">Upload logo</button>'
+    +'<input type="file" accept="image/*,.svg" data-action="upload-input">'
+    +'<input type="text" class="logo-path-input" placeholder="or path e.g. assets/gdg-logo.png" value="'+escAttr(p.logo)+'" data-field="logo">'
+    +'</div>'
+    +'<div>'
+    +'<div class="field-row">'
+    +'<div class="field-group"><label>Partner type</label><select class="type-select" data-field="type">'+typeOpts(p.type)+'</select></div>'
+    +'<div class="field-group"><label>Eyebrow text</label><input type="text" data-field="eyebrow" value="'+escAttr(p.eyebrow)+'" placeholder="e.g. Together We Build"></div>'
+    +'</div>'
+    +'<div class="field-row">'
+    +'<div class="field-group"><label>Heading (white)</label><input type="text" data-field="headingWhite" value="'+escAttr(p.headingWhite)+'"></div>'
+    +'<div class="field-group"><label>Heading (accent)</label><input type="text" data-field="headingAccent" value="'+escAttr(p.headingAccent)+'"></div>'
+    +'</div>'
+    +'<div class="field-group field-full"><label>Slide description</label><textarea data-field="desc">'+escHtml(p.desc||'')+'</textarea></div>'
+    +'<div class="field-row">'
+    +'<div class="field-group"><label>Partner name</label><input type="text" data-field="name" value="'+escAttr(p.name)+'"></div>'
+    +'<div class="field-group"><label>Role label</label><input type="text" data-field="role" value="'+escAttr(p.role)+'"></div>'
+    +'</div>'
+    +'<div class="field-group field-full"><label>Partner description</label><textarea data-field="partnerDesc">'+escHtml(p.partnerDesc||'')+'</textarea></div>'
+    +'<div class="card-footer-row">'
+    +'<label class="link-toggle-row" style="text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--muted);">'
+    +'<input type="checkbox" data-action="toggle-link" '+(hasLink?'checked':'')+'>Add a call-to-action link</label>'
+    +'<button class="btn btn-sm btn-danger" data-action="delete">Delete</button>'
+    +'</div>'
+    +'<div class="link-fields '+(hasLink?'visible':'')+'" data-link-fields>'
+    +'<div class="field-group"><label>Link text</label><input type="text" data-field="linkText" value="'+escAttr(p.linkText)+'" placeholder="Explore FusionX 1.0 \u2192"></div>'
+    +'<div class="field-group"><label>Link URL</label><input type="text" data-field="linkUrl" value="'+escAttr(p.linkUrl)+'" placeholder="register.html"></div>'
+    +'</div>'
+    +'</div></div></div></div>';
+}
+
+function renderDeck(){
+  var cl=document.getElementById('cardsList');
+  if(!partners.length){ cl.innerHTML='<div class="empty-state">No partners yet \u2014 add the first one below.</div>'; return; }
+  cl.innerHTML=partners.map(function(p,i){ return cardTemplate(p,i,partners.length); }).join('');
+}
+
+document.getElementById('cardsList').addEventListener('input',function(e){
+  var card=e.target.closest('.partner-deck-card'); if(!card) return;
+  var p=partners.find(function(x){ return x.id===card.dataset.id; }); if(!p) return;
+  var f=e.target.dataset.field;
+  if(f){ p[f]=e.target.value;
+    if(f==='logo'){ var prev=card.querySelector('[data-logo-preview]'); prev.classList.toggle('empty',!p.logo); prev.innerHTML=p.logo?'<img src="'+escAttr(p.logo)+'" alt="">':'<span>No logo yet</span>'; }
+    persistDeck();
+  }
+});
+
+document.getElementById('cardsList').addEventListener('change',function(e){
+  var card=e.target.closest('.partner-deck-card'); if(!card) return;
+  var p=partners.find(function(x){ return x.id===card.dataset.id; }); if(!p) return;
+  if(e.target.dataset.action==='toggle-link'){
+    card.querySelector('[data-link-fields]').classList.toggle('visible',e.target.checked);
+    if(!e.target.checked){ p.linkText=''; p.linkUrl=''; card.querySelectorAll('[data-field="linkText"],[data-field="linkUrl"]').forEach(function(i){ i.value=''; }); persistDeck(); }
+  }
+  if(e.target.dataset.action==='upload-input'){
+    var file=e.target.files[0]; if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(){
+      p.logo=reader.result;
+      var prev=card.querySelector('[data-logo-preview]'); prev.classList.remove('empty'); prev.innerHTML='<img src="'+p.logo+'" alt="">';
+      card.querySelector('[data-field="logo"]').value=p.logo.slice(0,40)+'...';
+      persistDeck();
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+document.getElementById('cardsList').addEventListener('click',function(e){
+  var btn=e.target.closest('button[data-action]'); if(!btn) return;
+  var card=btn.closest('.partner-deck-card'); var id=card.dataset.id;
+  var idx=partners.findIndex(function(x){ return x.id===id; }); if(idx===-1) return;
+  var a=btn.dataset.action;
+  if(a==='up'&&idx>0){ var tmp=partners[idx-1]; partners[idx-1]=partners[idx]; partners[idx]=tmp; persistDeck(); renderDeck(); }
+  if(a==='down'&&idx<partners.length-1){ var tmp2=partners[idx+1]; partners[idx+1]=partners[idx]; partners[idx]=tmp2; persistDeck(); renderDeck(); }
+  if(a==='delete'){ if(confirm('Delete "'+( partners[idx].name||'this partner')+'"? This cannot be undone.')){ partners.splice(idx,1); persistDeck(); renderDeck(); } }
+  if(a==='upload'){ card.querySelector('[data-action="upload-input"]').click(); }
+});
+
+document.getElementById('btnAdd').addEventListener('click',function(){ partners.push(FXP.blank()); persistDeck(); renderDeck(); document.getElementById('cardsList').lastElementChild.scrollIntoView({behavior:'smooth',block:'center'}); });
+document.getElementById('btnReset').addEventListener('click',function(){ if(confirm('Reset all partners to the 3 original defaults?')){ partners=FXP.reset(); renderDeck(); showDeckToast(); } });
+document.getElementById('btnExport').addEventListener('click',function(){ var blob=new Blob([JSON.stringify(partners,null,2)],{type:'application/json'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='fusionx-partners.json'; a.click(); URL.revokeObjectURL(url); });
+
+var importFile=document.getElementById('importFile');
+document.getElementById('btnImport').addEventListener('click',function(){ importFile.click(); });
+importFile.addEventListener('change',function(){
+  var f=importFile.files[0]; if(!f) return;
+  var reader=new FileReader();
+  reader.onload=function(){ try{ var parsed=JSON.parse(reader.result); if(!Array.isArray(parsed)) throw 0; partners=parsed; persistDeck(); renderDeck(); }catch(e){ alert('That file does not look like a valid partners export.'); } };
+  reader.readAsText(f); importFile.value='';
+});
+
+/* ==============================================================
+   C — TAB SWITCHER & INIT
+   ============================================================== */
+function switchView(name){
+  ['event','deck','team','public'].forEach(function(v){
+    document.getElementById('view-'+v).classList.toggle('active',v===name);
+    var key='tab'+v.charAt(0).toUpperCase()+v.slice(1);
+    document.getElementById(key).classList.toggle('active',v===name);
+  });
+  if(name==='public') pollPublic();
+  if(name==='event')  hydrateAdmin();
+  if(name==='deck')   renderDeck();
+  if(name==='team')   renderTeamDeck();
+}
+
+/* ==============================================================
+   C — TEAM DECK (Tab 2b): Guide the Vision / Organizers
+   Shares its data shape and localStorage key with js/team-data.js so
+   the desktop People section and the mobile Organizers accordion
+   read exactly what this tab publishes.
+   ============================================================== */
+var TEAM_KEY = 'fusionx_team_store';
+var TEAM_DEFAULT = {
+  order: ['GV'],
+  groups: {
+    GV: { title:'Guide the Vision', icon:'fa-graduation-cap', blurb:'Overall guidance & faculty direction', members:[
+      {name:'Shri. CA. N.V. Natarajan', role:'Chairman of Institutions', tag:'Chief Patron', img:'assets/team/chairman.jpg'},
+      {name:'', role:'', tag:'Chief Patron', img:'assets/team/ccmam.jpg'},
+      {name:'Dr. M. Perm Kumar', role:'Principal of Paavai Engineering College', tag:'Patron', img:'assets/team/principal.jpg'},
+      {name:'Dr. B. Venkatesan', role:'Head of IT', tag:'Convener', img:'assets/team/hod.jpg'},
+      {name:'Mr. R. Rakesh', role:'AP/IT', tag:'Faculty Co-ordinator', img:''},
+      {name:'Mrs. B. Deepa', role:'AP/IT', tag:'Faculty Co-ordinator', img:'assets/team/deepa.jpg'}
+    ]}
+  }
+};
+
+var FXT = {
+  // Same priority as FXP.load above: draft in this browser, then the
+  // real published data, then the hardcoded fallback.
+  load: function(){
+    try{
+      var r = localStorage.getItem(TEAM_KEY);
+      if(r){ var d=JSON.parse(r); if(d&&d.groups&&d.order) return d; }
+    }catch(e){}
+    var pub=window.FX_PUBLISHED_DATA&&window.FX_PUBLISHED_DATA.team;
+    if(pub&&pub.groups&&pub.order) return JSON.parse(JSON.stringify(pub));
+    return JSON.parse(JSON.stringify(TEAM_DEFAULT));
+  },
+  save: function(data){ localStorage.setItem(TEAM_KEY, JSON.stringify(data)); publishLive(); },
+  reset: function(){ var d=JSON.parse(JSON.stringify(TEAM_DEFAULT)); teamData=d; FXT.save(d); return d; }
+};
+
+var teamData = FXT.load();
+
+function renderTeamDeck(){
+  var wrap = document.getElementById('teamGroupsList');
+  if(!wrap) return;
+  wrap.innerHTML = teamData.order.map(function(key){
+    var g = teamData.groups[key];
+    if(!g) return '';
+    var memberRows = (g.members||[]).map(function(m,i){
+      var photo = m.img ? '<img src="'+escAttr(m.img)+'" alt="">' : '<span>No photo</span>';
+      return '<div class="card" style="margin-top:10px;">'
+        + '<div style="display:flex; gap:10px; flex-wrap:wrap;">'
+        + '<div style="flex:1; min-width:160px;"><label class="field-label">Name</label><input class="field" value="'+escAttr(m.name)+'" onchange="teamEditMember(\''+key+'\','+i+',\'name\',this.value)"></div>'
+        + '<div style="flex:1; min-width:160px;"><label class="field-label">Role</label><input class="field" value="'+escAttr(m.role)+'" onchange="teamEditMember(\''+key+'\','+i+',\'role\',this.value)"></div>'
+        + '</div>'
+        + '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">'
+        + '<div style="flex:1; min-width:160px;"><label class="field-label">Tag</label><input class="field" value="'+escAttr(m.tag)+'" onchange="teamEditMember(\''+key+'\','+i+',\'tag\',this.value)"></div>'
+        + '<div style="flex:2; min-width:220px;"><label class="field-label">Photo</label>'
+        + '<div style="display:flex; align-items:center; gap:10px;">'
+        + '<div class="member-photo-preview'+(m.img?'':' empty')+'" data-member-photo-preview>'+photo+'</div>'
+        + '<button type="button" class="btn btn-sm member-photo-upload-btn" data-action="upload-member-photo" data-key="'+key+'" data-idx="'+i+'">Upload photo</button>'
+        + '<input type="file" accept="image/*" data-action="upload-member-photo-input" data-key="'+key+'" data-idx="'+i+'" style="display:none;">'
+        + '</div>'
+        + '<input class="field" style="margin-top:6px;" placeholder="or path e.g. assets/team/name.jpg" value="'+escAttr(m.img)+'" onchange="teamEditMember(\''+key+'\','+i+',\'img\',this.value)">'
+        + '</div>'
+        + '</div>'
+        + '<div class="deck-actions" style="margin-top:10px;">'
+        + '<button class="btn btn-sm" onclick="teamMoveMember(\''+key+'\','+i+',-1)">&#8593; Up</button>'
+        + '<button class="btn btn-sm" onclick="teamMoveMember(\''+key+'\','+i+',1)">&#8595; Down</button>'
+        + '<button class="btn btn-sm btn-danger" onclick="teamRemoveMember(\''+key+'\','+i+')">Remove</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+    return '<div class="card" style="margin-top:18px;">'
+      + '<h3><i class="fa-solid '+escAttr(g.icon||'fa-users')+'"></i> '+escHtml(g.title)+'</h3>'
+      + '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">'
+      + '<div style="flex:1; min-width:200px;"><label class="field-label">Group title</label><input class="field" value="'+escAttr(g.title)+'" onchange="teamEditGroup(\''+key+'\',\'title\',this.value)"></div>'
+      + '<div style="flex:1; min-width:200px;"><label class="field-label">Subtitle</label><input class="field" value="'+escAttr(g.blurb)+'" onchange="teamEditGroup(\''+key+'\',\'blurb\',this.value)"></div>'
+      + '</div>'
+      + memberRows
+      + '<button class="add-partner-btn" style="margin-top:14px;" onclick="teamAddMember(\''+key+'\')">+ Add person to '+escHtml(g.title)+'</button>'
+      + '</div>';
+  }).join('');
+}
+
+function teamEditGroup(key, field, value){
+  teamData.groups[key][field] = value;
+  FXT.save(teamData);
+}
+function teamEditMember(key, idx, field, value){
+  teamData.groups[key].members[idx][field] = value;
+  FXT.save(teamData);
+}
+function teamSetMemberPhoto(key, idx, dataUrl){
+  teamData.groups[key].members[idx].img = dataUrl;
+  FXT.save(teamData);
+  renderTeamDeck();
+}
+// Uploaded photos are downscaled to a max 320px edge and re-encoded as
+// JPEG before being stored, so a full-resolution phone photo doesn't
+// blow past localStorage's ~5MB quota after a handful of uploads.
+function teamResizeImage(file, callback){
+  var reader = new FileReader();
+  reader.onload = function(){
+    var img = new Image();
+    img.onload = function(){
+      var MAX = 320;
+      var w = img.width, h = img.height;
+      if (w > h && w > MAX) { h = Math.round(h * (MAX / w)); w = MAX; }
+      else if (h > MAX) { w = Math.round(w * (MAX / h)); h = MAX; }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = function(){ callback(reader.result); };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+document.getElementById('teamGroupsList').addEventListener('click', function(e){
+  var btn = e.target.closest('[data-action="upload-member-photo"]');
+  if(!btn) return;
+  var wrap = btn.parentElement.querySelector('[data-action="upload-member-photo-input"]');
+  if(wrap) wrap.click();
+});
+document.getElementById('teamGroupsList').addEventListener('change', function(e){
+  var input = e.target.closest('[data-action="upload-member-photo-input"]');
+  if(!input) return;
+  var file = input.files[0]; if(!file) return;
+  var key = input.dataset.key, idx = parseInt(input.dataset.idx, 10);
+  teamResizeImage(file, function(dataUrl){ teamSetMemberPhoto(key, idx, dataUrl); });
+});
+function teamAddMember(key){
+  teamData.groups[key].members.push({name:'New Member', role:'Role', tag:'', img:''});
+  FXT.save(teamData);
+  renderTeamDeck();
+}
+function teamRemoveMember(key, idx){
+  teamData.groups[key].members.splice(idx,1);
+  FXT.save(teamData);
+  renderTeamDeck();
+}
+function teamMoveMember(key, idx, dir){
+  var arr = teamData.groups[key].members;
+  var j = idx+dir;
+  if(j<0 || j>=arr.length) return;
+  var tmp = arr[idx]; arr[idx]=arr[j]; arr[j]=tmp;
+  FXT.save(teamData);
+  renderTeamDeck();
+}
+function publishTeam(){
+  FXT.save(teamData);
+  showDeckToast();
+}
+document.getElementById('btnTeamReset') && document.getElementById('btnTeamReset').addEventListener('click', function(){
+  teamData = FXT.reset();
+  renderTeamDeck();
+});
+
+(function init(){
+  partners = FXP.load();
+  localState=loadEvState();
+  saveEvState(localState);
+  hydrateAdmin();
+  renderPublic(localState);
+  renderDeck();
+  teamData = FXT.load();
+  renderTeamDeck();
+  setInterval(pollPublic,4000);
+})();
+</script>
+</body>
+</html>

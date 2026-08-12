@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FUSIONX 1.0 — What's At Stake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; font-family: 'Inter', sans-serif; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.95rem;
+    text-decoration: none; border-radius: 100px; padding: 16px 32px; cursor: pointer; border: none;
+  }
+  .btn-primary { background: linear-gradient(135deg, #FF5A00, #EA3323); color: #fff; }
+/* ============================================================
+   WHAT'S AT STAKE — 3D Prize Core (own design, real CSS 3D)
+   ============================================================ */
+.stake3d-section {
+  position: relative;
+  padding: 6vh 20px 8vh;
+  overflow: hidden;
+  background: #000;
+}
+.stake3d-glow {
+  position: absolute; top: 10%; left: 50%; width: 900px; height: 900px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(255,90,0,0.16), transparent 65%);
+  filter: blur(20px); pointer-events: none; z-index: 0;
+}
+.stake3d-head { position: relative; z-index: 2; text-align: center; max-width: 720px; margin: 0 auto 6vh; }
+.stake3d-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'Space Grotesk', sans-serif; font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; color: #FF5A00;
+  background: rgba(255,90,0,0.12); border: 1px solid rgba(255,90,0,0.4);
+  border-radius: 100px; padding: 8px 16px; margin-bottom: 20px;
+}
+.stake3d-eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: #FF5A00; box-shadow: 0 0 10px #FF5A00; }
+.stake3d-heading {
+  font-family: 'Space Grotesk', sans-serif; font-weight: 800;
+  font-size: clamp(2rem, 5.5vw, 3.4rem); color: #fff; line-height: 1.1; margin-bottom: 18px;
+}
+.stake3d-heading .accent { color: #FF5A00; }
+.stake3d-sub { font-family: 'Inter', sans-serif; color: #a6a6a6; font-size: 1.05rem; line-height: 1.6; }
+
+/* ---- 3D rotating core ---- */
+.stake3d-core-wrap {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  height: clamp(260px, 34vw, 380px);
+  margin-bottom: 7vh;
+}
+.stake3d-ring {
+  position: absolute; border: 1px solid rgba(255,90,0,0.25); border-radius: 50%;
+  transform: rotateX(72deg);
+  pointer-events: none;
+}
+.stake3d-ring-a { width: clamp(260px, 30vw, 380px); height: clamp(260px, 30vw, 380px); animation: stake3dRingSpin 18s linear infinite; }
+.stake3d-ring-b { width: clamp(320px, 38vw, 460px); height: clamp(320px, 38vw, 460px); border-color: rgba(255,90,0,0.14); animation: stake3dRingSpin 26s linear infinite reverse; }
+@keyframes stake3dRingSpin { from { transform: rotateX(72deg) rotateZ(0deg); } to { transform: rotateX(72deg) rotateZ(360deg); } }
+
+.stake3d-core-scene { perspective: 1200px; width: clamp(150px, 16vw, 200px); height: clamp(150px, 16vw, 200px); }
+.stake3d-core-tilt { width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.35s cubic-bezier(0.22,1,0.36,1); }
+.stake3d-core-spin {
+  position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
+  animation: stake3dSpin 16s linear infinite;
+}
+@keyframes stake3dSpin {
+  from { transform: rotateX(-16deg) rotateY(0deg); }
+  to   { transform: rotateX(-16deg) rotateY(360deg); }
+}
+.stake3d-face {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; text-align: center; padding: 10px;
+  background: linear-gradient(155deg, rgba(255,90,0,0.16), rgba(10,10,10,0.92));
+  border: 1px solid rgba(255,90,0,0.45);
+  border-radius: 14px;
+  box-shadow: inset 0 0 30px rgba(255,90,0,0.08);
+  backface-visibility: hidden;
+}
+.stake3d-face .f-num { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: clamp(1.1rem, 2vw, 1.5rem); color: #fff; }
+.stake3d-face .f-label { font-family: 'Space Grotesk', sans-serif; font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; color: #FF5A00; }
+.stake3d-face i { font-size: clamp(1.6rem, 3vw, 2.2rem); color: #FF5A00; }
+.stake3d-face-front { transform: rotateY(0deg) translateZ(calc(clamp(150px, 16vw, 200px) / 2)); }
+.stake3d-face-back   { transform: rotateY(180deg) translateZ(calc(clamp(150px, 16vw, 200px) / 2)); }
+.stake3d-face-right  { transform: rotateY(90deg) translateZ(calc(clamp(150px, 16vw, 200px) / 2)); }
+.stake3d-face-left   { transform: rotateY(-90deg) translateZ(calc(clamp(150px, 16vw, 200px) / 2)); }
+.stake3d-face-top    { transform: rotateX(90deg) translateZ(calc(clamp(150px, 16vw, 200px) / 2)); }
+.stake3d-face-bottom { transform: rotateX(-90deg) translateZ(calc(clamp(150px, 16vw, 200px) / 2)); }
+
+/* ---- feature cards: 3D flip-reveal on scroll + hover tilt ---- */
+.stake3d-cards {
+  position: relative; z-index: 2;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
+  max-width: 1200px; margin: 0 auto 6vh;
+}
+.stake3d-card-wrap { perspective: 1000px; }
+.stake3d-card {
+  position: relative; height: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px; padding: 28px 22px;
+  transform: rotateY(-85deg); opacity: 0;
+  transform-origin: left center;
+  transition: transform 0.75s cubic-bezier(0.16,1,0.3,1), opacity 0.6s ease, border-color 0.3s ease, background 0.3s ease;
+  transform-style: preserve-3d;
+}
+.stake3d-card-wrap:nth-child(2) .stake3d-card { transition-delay: 0.08s; }
+.stake3d-card-wrap:nth-child(3) .stake3d-card { transition-delay: 0.16s; }
+.stake3d-card-wrap:nth-child(4) .stake3d-card { transition-delay: 0.24s; }
+.stake3d-card.in-view { transform: rotateY(0deg); opacity: 1; }
+.stake3d-card:hover { border-color: rgba(255,90,0,0.5); background: rgba(255,90,0,0.06); }
+.stake3d-card .idx {
+  font-family: 'Space Grotesk', sans-serif; font-size: 0.75rem; font-weight: 700;
+  color: rgba(255,255,255,0.3); letter-spacing: 1px;
+}
+.stake3d-card .ic {
+  width: 46px; height: 46px; border-radius: 12px; margin: 14px 0 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,90,0,0.14); color: #FF5A00; font-size: 1.15rem;
+}
+.stake3d-card h4 { font-family: 'Space Grotesk', sans-serif; color: #fff; font-size: 1.05rem; margin-bottom: 8px; }
+.stake3d-card p { font-family: 'Inter', sans-serif; color: #a6a6a6; font-size: 0.88rem; line-height: 1.55; }
+
+/* ---- footer stat strip + CTA ---- */
+.stake3d-footer {
+  position: relative; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 32px; padding-top: 4vh; border-top: 1px solid rgba(255,255,255,0.08);
+  max-width: 1200px; margin: 0 auto;
+}
+.stake3d-foot-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.stake3d-foot-stat b { font-family: 'Space Grotesk', sans-serif; color: #fff; font-size: 1.4rem; }
+.stake3d-foot-stat span { font-family: 'Space Grotesk', sans-serif; color: #a6a6a6; font-size: 0.7rem; letter-spacing: 1.5px; text-transform: uppercase; }
+.stake3d-foot-div { width: 1px; height: 34px; background: rgba(255,255,255,0.15); }
+.stake3d-cta { margin-left: 8px; }
+
+@media (max-width: 980px) {
+  .stake3d-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 620px) {
+  .stake3d-cards { grid-template-columns: 1fr; }
+  .stake3d-footer { flex-direction: column; gap: 20px; }
+  .stake3d-foot-div { display: none; }
+  .stake3d-cta { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stake3d-core-spin, .stake3d-ring-a, .stake3d-ring-b { animation: none !important; }
+  .stake3d-core-spin { transform: rotateX(-16deg) rotateY(28deg); }
+  .stake3d-card { transition: opacity 0.4s ease !important; transform: rotateY(0deg) !important; }
+}
+
+</style>
+</head>
+<body>
+      <div class="stake3d-section" id="stake3dSection">
+        <div class="stake3d-glow"></div>
+
+        <div class="stake3d-head">
+          <div class="stake3d-eyebrow"><span class="dot"></span> What's At Stake</div>
+          <h2 class="stake3d-heading">Innovate. <span class="accent">Compete.</span> Win.</h2>
+          <p class="stake3d-sub">Bring your ideas to life and stand a chance to win big — every top team walks away rewarded.</p>
+        </div>
+
+        <div class="stake3d-core-wrap">
+          <div class="stake3d-ring stake3d-ring-a"></div>
+          <div class="stake3d-ring stake3d-ring-b"></div>
+          <div class="stake3d-core-scene" id="stake3dScene">
+            <div class="stake3d-core-tilt" id="stake3dTilt">
+              <div class="stake3d-core-spin">
+                <div class="stake3d-face stake3d-face-front">
+                  <span class="f-num">₹50,000+</span>
+                  <span class="f-label">Total Prize Pool</span>
+                </div>
+                <div class="stake3d-face stake3d-face-back">
+                  <span class="f-num">₹10,000</span>
+                  <span class="f-label">Per Theme Winner</span>
+                </div>
+                <div class="stake3d-face stake3d-face-right">
+                  <span class="f-num">5+</span>
+                  <span class="f-label">Themes Covered</span>
+                </div>
+                <div class="stake3d-face stake3d-face-left">
+                  <span class="f-num">1</span>
+                  <span class="f-label">Top Team / Theme</span>
+                </div>
+                <div class="stake3d-face stake3d-face-top">
+                  <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div class="stake3d-face stake3d-face-bottom">
+                  <span class="f-label">Equal Reward.<br>Equal Recognition.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stake3d-cards">
+          <div class="stake3d-card-wrap">
+            <div class="stake3d-card">
+              <span class="idx">01</span>
+              <div class="ic"><i class="fa-solid fa-medal"></i></div>
+              <h4>1 Top Team, Every Theme</h4>
+              <p>Judges crown one top-ranking team per theme — no runners-up, no fine print.</p>
+            </div>
+          </div>
+          <div class="stake3d-card-wrap">
+            <div class="stake3d-card">
+              <span class="idx">02</span>
+              <div class="ic"><i class="fa-solid fa-scale-balanced"></i></div>
+              <h4>Equal ₹10,000, Every Theme</h4>
+              <p>No tier differences: every theme winner takes home the exact same ₹10,000 prize.</p>
+            </div>
+          </div>
+          <div class="stake3d-card-wrap">
+            <div class="stake3d-card">
+              <span class="idx">03</span>
+              <div class="ic"><i class="fa-solid fa-layer-group"></i></div>
+              <h4>5+ Themes To Choose From</h4>
+              <p>Smart Campus, AI, Sustainability, Healthcare &amp; Open Innovation — pick your lane.</p>
+            </div>
+          </div>
+          <div class="stake3d-card-wrap">
+            <div class="stake3d-card">
+              <span class="idx">04</span>
+              <div class="ic"><i class="fa-solid fa-handshake"></i></div>
+              <h4>Every Innovator Valued</h4>
+              <p>Equal reward. Equal recognition. Every win is celebrated the same way.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="stake3d-footer">
+          <div class="stake3d-foot-stat"><b>₹50,000+</b><span>Total Prize Pool</span></div>
+          <div class="stake3d-foot-div"></div>
+          <div class="stake3d-foot-stat"><b>₹10,000</b><span>Per Theme Winner</span></div>
+          <a href="register.html" class="btn btn-primary stake3d-cta">Start your team →</a>
+        </div>
+      </div>
+
+      <script>
+      (function () {
+        var section = document.getElementById('stake3dSection');
+        if (!section) return;
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Scroll-reveal: cards 3D-flip into place the first time they enter view.
+        var cards = section.querySelectorAll('.stake3d-card');
+        if ('IntersectionObserver' in window) {
+          var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in-view');
+                io.unobserve(entry.target);
+              }
+            });
+          }, { threshold: 0.25 });
+          cards.forEach(function (c) { io.observe(c); });
+        } else {
+          cards.forEach(function (c) { c.classList.add('in-view'); });
+        }
+
+        // Mouse-driven 3D tilt on the rotating prize core (desktop / hover-capable only).
+        var scene = document.getElementById('stake3dScene');
+        var tilt = document.getElementById('stake3dTilt');
+        var hoverCapable = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        if (scene && tilt && hoverCapable && !reduced) {
+          scene.addEventListener('mousemove', function (e) {
+            var r = scene.getBoundingClientRect();
+            var px = (e.clientX - r.left) / r.width - 0.5;
+            var py = (e.clientY - r.top) / r.height - 0.5;
+            tilt.style.transform = 'rotateY(' + (px * 34) + 'deg) rotateX(' + (-py * 28) + 'deg)';
+          });
+          scene.addEventListener('mouseleave', function () {
+            tilt.style.transform = 'rotateY(0deg) rotateX(0deg)';
+          });
+        }
+      })();
+      </script>
+</body>
+</html>

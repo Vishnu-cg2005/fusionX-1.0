@@ -1,0 +1,33 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Perfectly Centered Official Devfolio Logo Emblem -->
+  <g transform="translate(-3, 6)">
+    <!-- Primary Devfolio 'D' Emblem -->
+    <path d="M 34 26
+             C 34 18.268 40.268 12 48 12
+             L 66 12
+             C 84.778 12 100 27.222 100 46
+             C 100 64.778 84.778 80 66 80
+             L 48 80
+             C 40.268 80 34 73.732 34 66
+             Z" 
+          fill="#3770FF"/>
+    
+    <!-- Outer Folded Bottom Swoop -->
+    <path d="M 34 68
+             C 34 76.5 42 84 52 84
+             L 66 84
+             C 80 84 92 75 97 62
+             C 93 74 80 88 64 88
+             L 50 88
+             C 40 88 34 82 34 68 Z" 
+          fill="#2756D6"/>
+
+    <!-- Bottom Secondary Layer Loop -->
+    <path d="M 34 72
+             C 38 84 50 94 68 94
+             C 83 94 94 87 99 76
+             C 93 85 81 90 66 90
+             C 49 90 38 82 34 72 Z" 
+          fill="#3770FF"/>
+  </g>
+</svg>
